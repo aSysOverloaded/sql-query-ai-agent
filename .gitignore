@@ -12,3 +12,7 @@ __pycache__/
 # Frontend (Next.js)
 node_modules/
 .next/
+
+# Documentation
+INTERVIEW_NOTES.md
+PLAN.md

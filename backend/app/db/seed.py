@@ -40,7 +40,6 @@ DEPARTMENTS = [
 
 CATEGORIES = ["Electronics", "Books", "Clothing", "Home & Kitchen", "Sports", "Toys"]
 
-# department: (staff job title, headcount, min salary, max salary)
 STAFF_ROLES = {
     "Sales": ("Sales Representative", 15, 45_000, 80_000),
     "Engineering": ("Software Engineer", 9, 85_000, 110_000),
@@ -54,7 +53,6 @@ STAFF_ROLES = {
 CUSTOMER_COUNT = 200
 US_CUSTOMER_SHARE = 0.8
 
-# Real (city, state code) pairs, so city and state always match.
 US_CITIES = [
     ("Los Angeles", "CA"),
     ("San Francisco", "CA"),
@@ -78,7 +76,6 @@ US_CITIES = [
 UK_CITIES = ["London", "Manchester", "Birmingham", "Edinburgh", "Bristol"]
 CANADA_CITIES = ["Toronto", "Vancouver", "Montreal", "Calgary", "Ottawa"]
 
-# category: (min price, max price, product names)
 PRODUCTS = {
     "Electronics": (50, 1500, [
         "Wireless Headphones", "Smartwatch", "4K Monitor", "Bluetooth Speaker", "Laptop",
@@ -110,9 +107,9 @@ PRODUCTS = {
 ORDER_COUNT = 1000
 ORDERS_START = date(2023, 1, 1)
 ORDERS_END = date(2025, 12, 31)
-RECENT_ORDERS_FROM = date(2025, 12, 1)   # orders after this are still pending or shipped
-NO_ORDERS_SIGNUP_FROM = date(2025, 10, 1)  # customers who signed up after this have no orders yet
-NEVER_ORDERED_PRODUCTS = 2                 # the last N products are never ordered
+RECENT_ORDERS_FROM = date(2025, 12, 1)
+NO_ORDERS_SIGNUP_FROM = date(2025, 10, 1)
+NEVER_ORDERED_PRODUCTS = 2
 
 used_emails: set[str] = set()
 
@@ -272,7 +269,7 @@ def seed_products(conn: sqlite3.Connection) -> None:
     rows = []
     for category, (min_price, max_price, names) in PRODUCTS.items():
         for name in names:
-            price = round(random.uniform(min_price, max_price)) - 0.01  # e.g. 49.99
+            price = round(random.uniform(min_price, max_price)) - 0.01
             rows.append((name, category_ids[category], price, random_stock()))
 
     conn.executemany(
