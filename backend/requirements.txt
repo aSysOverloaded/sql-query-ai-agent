@@ -4,3 +4,4 @@ langgraph==1.2.12
 langchain-core==1.6.5
 langchain-google-genai==4.4.0
 python-dotenv==1.2.3
+langchain-groq==1.1.3
