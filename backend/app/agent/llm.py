@@ -18,9 +18,9 @@ RATE_LIMIT_ERRORS = (ModelRateLimitError, groq.RateLimitError)
 def get_chat_model(model: str) -> BaseChatModel:
     """Return a deterministic (temperature 0) chat model from the provider set by LLM_PROVIDER."""
     if config.LLM_PROVIDER == "groq":
-        return ChatGroq(model=model, temperature=0)
+        return ChatGroq(model=model, temperature=0, timeout=config.LLM_TIMEOUT_SECONDS)
     if config.LLM_PROVIDER == "gemini":
-        return ChatGoogleGenerativeAI(model=model, temperature=0)
+        return ChatGoogleGenerativeAI(model=model, temperature=0, timeout=config.LLM_TIMEOUT_SECONDS)
     raise ValueError(f"Unknown LLM_PROVIDER '{config.LLM_PROVIDER}'. Use 'groq' or 'gemini'.")
 
 

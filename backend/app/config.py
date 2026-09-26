@@ -33,6 +33,8 @@ DB_PATH = DB_DIR / "company.db"
 SCHEMA_PATH = DB_DIR / "schema.sql"
 
 MAX_SQL_RETRIES = 2
+MAX_HISTORY_MESSAGES = 10
+LLM_TIMEOUT_SECONDS = 60
 
 MAX_MESSAGE_LENGTH = 2000
 FRONTEND_ORIGINS = os.getenv("FRONTEND_ORIGINS", "http://localhost:3000").split(",")

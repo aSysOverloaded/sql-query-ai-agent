@@ -4,7 +4,7 @@ The steps (nodes) of the agent graph. Each node takes the state and returns the 
 
 from collections import Counter
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage, trim_messages
 
 from app import config
 from app.agent.llm import get_chat_model, get_structured_model
@@ -41,10 +41,21 @@ explainer_llm = get_chat_model(config.EXPLAINER_MODEL)
 PREVIEW_ROWS = 5
 
 
+def recent_messages(state: AgentState) -> list[AnyMessage]:
+    """The last MAX_HISTORY_MESSAGES messages, starting on a user message. Keeps prompts small in long chats."""
+    return trim_messages(
+        state["messages"],
+        strategy="last",
+        token_counter=len,
+        max_tokens=config.MAX_HISTORY_MESSAGES,
+        start_on="human",
+    )
+
+
 def classify_intent(state: AgentState) -> dict:
     """Decide what kind of request the latest message is, and extract any SQL it contains."""
     system = SystemMessage(CLASSIFIER_PROMPT.format(table_names=", ".join(get_schema())))
-    result = classifier_llm.invoke([system, *state["messages"]])
+    result = classifier_llm.invoke([system, *recent_messages(state)])
     return {
         "intent": result.intent,
         "user_sql": result.user_sql,
@@ -67,7 +78,7 @@ def generate_sql(state: AgentState) -> dict:
             errors="\n".join(f"- {error}" for error in state["validation_errors"]),
         )
 
-    result = generator_llm.invoke([SystemMessage(system_text), *state["messages"]])
+    result = generator_llm.invoke([SystemMessage(system_text), *recent_messages(state)])
 
     if not result.sql:
         question = result.clarification or "Could you rephrase your request with a bit more detail?"
@@ -127,7 +138,7 @@ def explain(state: AgentState) -> dict:
 def answer_schema_question(state: AgentState) -> dict:
     """Answer questions about which tables, columns and relationships exist."""
     system = SystemMessage(SCHEMA_INFO_PROMPT.format(schema=get_schema_for_prompt()))
-    answer = explainer_llm.invoke([system, *state["messages"]]).text
+    answer = explainer_llm.invoke([system, *recent_messages(state)]).text
     return {"messages": [AIMessage(answer)]}
 
 
@@ -146,7 +157,7 @@ def explain_user_sql(state: AgentState) -> dict:
     else:
         prompt = EXPLAIN_CONCEPT_PROMPT.format(schema=schema)
 
-    answer = explainer_llm.invoke([SystemMessage(prompt), *state["messages"]]).text
+    answer = explainer_llm.invoke([SystemMessage(prompt), *recent_messages(state)]).text
     return {"messages": [AIMessage(answer)]}
 
 
@@ -171,7 +182,7 @@ def debug_user_sql(state: AgentState) -> dict:
     prompt = DEBUG_PROMPT.format(
         schema=get_schema_for_prompt(), sql=sql, findings=format_findings(validation), run_outcome=run_outcome
     )
-    result = debugger_llm.invoke([SystemMessage(prompt), *state["messages"]])
+    result = debugger_llm.invoke([SystemMessage(prompt), *recent_messages(state)])
 
     parts = [f"**Issue:** {result.issue}", result.explanation]
     fix_is_valid = validate_sql(result.corrected_sql, schema).is_valid
@@ -210,7 +221,7 @@ def optimize_user_sql(state: AgentState) -> dict:
         return {"messages": [AIMessage(reply)]}
 
     prompt = OPTIMIZE_PROMPT.format(schema=get_schema_for_prompt(), sql=sql)
-    result = optimizer_llm.invoke([SystemMessage(prompt), *state["messages"]])
+    result = optimizer_llm.invoke([SystemMessage(prompt), *recent_messages(state)])
 
     parts = ["**Changes:**\n" + "\n".join(f"- {change}" for change in result.changes)]
     if result.index_suggestions:

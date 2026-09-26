@@ -10,7 +10,7 @@ Run from the backend folder:
 
 import random
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from faker import Faker
 
@@ -21,8 +21,6 @@ SEED = 42
 fake = Faker("en_US")
 fake_uk = Faker("en_GB")
 fake_ca = Faker("en_CA")
-Faker.seed(SEED)
-random.seed(SEED)
 
 DEPARTMENTS = [
     ("Executive", "New York"),
@@ -147,8 +145,9 @@ def unique_email(first: str, last: str, domain: str) -> str:
 
 
 def random_date(start: date, end: date) -> str:
-    """Random date between start and end, as 'YYYY-MM-DD' text."""
-    return fake.date_between(start_date=start, end_date=end).isoformat()
+    """Random date between start and end, as 'YYYY-MM-DD' text. Uses Python's random module
+    rather than Faker, whose dates depend on the machine's timezone and platform."""
+    return (start + timedelta(days=random.randint(0, (end - start).days))).isoformat()
 
 
 def insert_employee(
@@ -321,7 +320,12 @@ def seed_orders(conn: sqlite3.Connection) -> None:
         )
 
 
-if __name__ == "__main__":
+def build_database() -> None:
+    """Create and fill the database. Resets every random source first, so each run is identical."""
+    Faker.seed(SEED)
+    random.seed(SEED)
+    used_emails.clear()
+
     conn = create_database()
     seed_departments(conn)
     seed_categories(conn)
@@ -331,4 +335,8 @@ if __name__ == "__main__":
     seed_orders(conn)
     conn.commit()
     conn.close()
+
+
+if __name__ == "__main__":
+    build_database()
     print(f"Created database at {DB_PATH}")
