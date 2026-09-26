@@ -8,7 +8,7 @@ Built with **LangGraph** (orchestration), **FastAPI** (API with streaming), **SQ
 
 ![Answer to "Show all employees hired after January 2024": generated SQL, explanation and results](docs/images/sql-answer.png)
 
-**Demo video:** _link to be added_
+**Demo video:** [Watch on YouTube](https://youtu.be/06ycW-4PIfE)
 
 ---
 
@@ -216,6 +216,8 @@ flowchart TD
 | `answer_schema_question` | small | Answers "what tables / columns / relationships exist" from the live schema. |
 | `refuse` | — | Fixed text for destructive and out-of-scope requests (no LLM call, cannot be manipulated). |
 
+**How this maps to the suggested workflow:** intent detection and scope validation are one node (one LLM call instead of two). **Schema retrieval** happens inside each node that needs it (`get_schema_for_prompt()` reads the live schema from the database), rather than as a separate step. **SQL optimization** is its own path for queries the user provides; generated queries are written to the optimization rules in the generator prompt and every result shows a cost estimate. Validation is followed by a self-correction loop, which the suggested workflow does not have.
+
 **State** (`backend/app/agent/state.py`): `messages` uses the `add_messages` reducer so the conversation accumulates; per-question fields (`generated_sql`, `validation_errors`, `retry_count`, `query_result`, …) are reset at the start of each turn. **Memory:** the graph is compiled with an `InMemorySaver` checkpointer; each `thread_id` is a separate conversation. **Structured outputs** use JSON-schema mode so the model's output always matches the Pydantic model.
 
 ---
@@ -339,6 +341,7 @@ docker-compose.yml
 
 ## Design decisions and assumptions
 
+- **No database schema was provided with the assignment**, so a sample retail schema was designed (7 tables) to cover the assignment's examples and every common join type.
 - **Validation is deterministic, not LLM-based.** An LLM asked "is this SQL valid?" can be wrong; the AST-based validator is predictable, testable and free.
 - **One LLM call for intent + scope**, a small model for classification/explanation and a large model for writing SQL — fewer calls, lower latency and cost.
 - **Assume, then say so.** Vague requests ("best products") get a reasonable assumption stated in the explanation; clarifying questions only when no assumption is sensible.
