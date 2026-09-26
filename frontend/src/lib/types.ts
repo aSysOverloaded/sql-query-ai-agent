@@ -5,6 +5,13 @@ export type QueryResult = {
   truncated: boolean;
 };
 
+export type QueryCost = {
+  level: "low" | "medium" | "high";
+  rows_scanned: number;
+  notes: string[];
+  plan: string[];
+};
+
 export type ChatResponse = {
   thread_id: string;
   intent: string | null;
@@ -13,6 +20,7 @@ export type ChatResponse = {
   explanation: string | null;
   warnings: string[];
   result: QueryResult | null;
+  cost?: QueryCost | null;
 };
 
 export type ChatMessage = {

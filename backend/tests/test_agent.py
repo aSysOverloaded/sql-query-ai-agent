@@ -182,6 +182,7 @@ def test_optimize_compares_the_results_of_both_queries(use_fakes, optimized_sql,
     state = ask(f"Optimize: {original}")
 
     assert expected_note in state["messages"][-1].content
+    assert "**Estimated cost:** Low (reads about 200 rows)" in state["messages"][-1].content
 
 
 def test_conversation_memory_is_kept_per_thread(use_fakes):

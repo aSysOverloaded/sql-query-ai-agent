@@ -30,6 +30,7 @@ from app.agent.state import (
     SQLOptimization,
 )
 from app.db.database import get_schema, get_schema_for_prompt, run_query
+from app.db.query_cost import estimate_query_cost
 from app.validation.validator import ValidationResult, validate_sql
 
 classifier_llm = get_structured_model(config.CLASSIFIER_MODEL, IntentClassification)
@@ -65,6 +66,7 @@ def classify_intent(state: AgentState) -> dict:
         "validation_warnings": [],
         "retry_count": 0,
         "query_result": None,
+        "query_cost": None,
         "explanation": None,
     }
 
@@ -96,15 +98,28 @@ def validate_query(state: AgentState) -> dict:
     }
 
 
+def cost_or_none(sql: str) -> dict | None:
+    """The cost estimate is informational, so a failure here must never break an answer."""
+    try:
+        return estimate_query_cost(sql)
+    except Exception:
+        return None
+
+
+def format_cost(cost: dict) -> str:
+    return f"{cost['level'].capitalize()} (reads about {cost['rows_scanned']:,} rows)"
+
+
 def execute_query(state: AgentState) -> dict:
     """Run the validated SQL. If SQLite still rejects it, treat that like a validation error."""
     try:
-        return {"query_result": run_query(state["generated_sql"])}
+        result = run_query(state["generated_sql"])
     except Exception as error:
         return {
             "validation_errors": [f"The query failed when run on the database: {error}"],
             "retry_count": state["retry_count"] + 1,
         }
+    return {"query_result": result, "query_cost": cost_or_none(state["generated_sql"])}
 
 
 def latest_user_message(state: AgentState) -> str:
@@ -220,7 +235,9 @@ def optimize_user_sql(state: AgentState) -> dict:
         )
         return {"messages": [AIMessage(reply)]}
 
-    prompt = OPTIMIZE_PROMPT.format(schema=get_schema_for_prompt(), sql=sql)
+    original_cost = cost_or_none(sql)
+    plan_notes = "\n".join(f"- {note}" for note in original_cost["notes"]) if original_cost else "Not available."
+    prompt = OPTIMIZE_PROMPT.format(schema=get_schema_for_prompt(), sql=sql, plan=plan_notes)
     result = optimizer_llm.invoke([SystemMessage(prompt), *recent_messages(state)])
 
     parts = ["**Changes:**\n" + "\n".join(f"- {change}" for change in result.changes)]
@@ -237,7 +254,14 @@ def optimize_user_sql(state: AgentState) -> dict:
         parts.append("Checked: it returns the same rows as your original query.")
     else:
         parts.append("Warning: it does not return the same rows as your original query. Review it before using it.")
-    return {"generated_sql": result.optimized_sql, "messages": [AIMessage("\n\n".join(parts))]}
+    optimized_cost = cost_or_none(result.optimized_sql)
+    if original_cost and optimized_cost:
+        parts.append(f"**Estimated cost:** {format_cost(original_cost)} → {format_cost(optimized_cost)}")
+    return {
+        "generated_sql": result.optimized_sql,
+        "query_cost": optimized_cost,
+        "messages": [AIMessage("\n\n".join(parts))],
+    }
 
 
 def give_up(state: AgentState) -> dict:

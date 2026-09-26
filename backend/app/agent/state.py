@@ -80,4 +80,5 @@ class AgentState(TypedDict):
     validation_warnings: list[str]
     retry_count: int
     query_result: dict | None
+    query_cost: dict | None
     explanation: str | None

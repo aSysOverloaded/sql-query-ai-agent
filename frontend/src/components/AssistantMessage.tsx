@@ -81,7 +81,7 @@ export function AssistantMessage({ message, onRetry }: AssistantMessageProps) {
                 <Markdown text={response.explanation} />
               </div>
             )}
-            <ResultsTable result={response.result!} />
+            <ResultsTable result={response.result!} cost={response.cost} />
           </>
         ) : (
           <>

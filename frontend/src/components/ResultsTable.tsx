@@ -1,6 +1,7 @@
+import { CostBadge } from "@/components/CostBadge";
 import { DownloadIcon } from "@/components/icons";
 import { downloadFile, toCsv } from "@/lib/download";
-import type { QueryResult } from "@/lib/types";
+import type { QueryCost, QueryResult } from "@/lib/types";
 
 function Cell({ value }: { value: unknown }) {
   if (value === null || value === undefined) {
@@ -9,7 +10,7 @@ function Cell({ value }: { value: unknown }) {
   return <>{String(value)}</>;
 }
 
-export function ResultsTable({ result }: { result: QueryResult }) {
+export function ResultsTable({ result, cost }: { result: QueryResult; cost?: QueryCost | null }) {
   const summary = result.truncated
     ? `Showing the first ${result.row_count} rows`
     : `${result.row_count} ${result.row_count === 1 ? "row" : "rows"}`;
@@ -29,6 +30,7 @@ export function ResultsTable({ result }: { result: QueryResult }) {
           <span>CSV</span>
         </button>
       </div>
+      {cost && <CostBadge cost={cost} />}
       {result.row_count === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-zinc-500">The query returned no rows.</p>
       ) : (

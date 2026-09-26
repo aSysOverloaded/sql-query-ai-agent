@@ -58,6 +58,13 @@ class QueryResult(BaseModel):
     truncated: bool
 
 
+class QueryCost(BaseModel):
+    level: str
+    rows_scanned: int
+    notes: list[str]
+    plan: list[str]
+
+
 class ChatResponse(BaseModel):
     thread_id: str
     intent: str | None
@@ -66,6 +73,7 @@ class ChatResponse(BaseModel):
     explanation: str | None
     warnings: list[str]
     result: QueryResult | None
+    cost: QueryCost | None
 
 
 app = FastAPI(
@@ -91,6 +99,7 @@ def build_response(thread_id: str, state: dict) -> ChatResponse:
         explanation=state.get("explanation"),
         warnings=state.get("validation_warnings") or [],
         result=state.get("query_result"),
+        cost=None if gave_up else state.get("query_cost"),
     )
 
 

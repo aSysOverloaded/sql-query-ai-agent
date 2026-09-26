@@ -77,6 +77,8 @@ def test_sql_answer_fills_every_panel_field(use_fakes):
     assert body["result"]["columns"] == ["name"]
     assert body["result"]["row_count"] == 6
     assert body["reply"].startswith("```sql")
+    assert body["cost"]["level"] == "low"
+    assert body["cost"]["rows_scanned"] == 6
 
 
 def test_refusal_has_no_sql_or_results(use_fakes):
@@ -97,6 +99,7 @@ def test_sql_is_hidden_when_the_agent_gives_up(use_fakes):
 
     assert body["sql"] is None
     assert body["result"] is None
+    assert body["cost"] is None
 
 
 def test_rate_limit_returns_503_with_a_friendly_message(use_fakes):

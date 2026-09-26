@@ -146,6 +146,9 @@ orders.customer_id) and date columns are not indexed.
 The user's query:
 {sql}
 
+SQLite's query plan for it:
+{plan}
+
 Improve it:
 - Readability: consistent formatting, clear aliases, explicit JOIN ... ON, no SELECT * unless needed.
 - Performance: remove joins and columns that do not affect the result, avoid wrapping indexed or

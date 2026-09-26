@@ -1,5 +1,7 @@
 # SQL Query AI Agent
 
+[![CI](https://github.com/aSysOverloaded/sql-query-ai-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/aSysOverloaded/sql-query-ai-agent/actions/workflows/ci.yml)
+
 A task-focused AI agent that turns natural-language questions into **validated, read-only SQL**, runs it against a sample retail database, and explains the result in plain English. It can also explain, debug and optimize SQL that the user pastes in, keeps conversation context for follow-up questions, and refuses anything outside SQL and the provided schema.
 
 Built with **LangGraph** (orchestration), **FastAPI** (API with streaming), **SQLite** (database), **sqlglot** (deterministic SQL validation) and **Next.js** (web UI).
@@ -111,7 +113,8 @@ curl -X POST http://localhost:8000/api/chat \
   "sql": "SELECT e.* FROM employees AS e WHERE e.hire_date >= '2024-01-01' ORDER BY e.hire_date;",
   "explanation": "The query lists every employee who started on or after January 1, 2024 ...",
   "warnings": [],
-  "result": { "columns": ["employee_id", "first_name", "..."], "rows": [[50, "Tasha", "..."]], "row_count": 9, "truncated": false }
+  "result": { "columns": ["employee_id", "first_name", "..."], "rows": [[50, "Tasha", "..."]], "row_count": 9, "truncated": false },
+  "cost": { "level": "low", "rows_scanned": 50, "notes": ["Reads every row of employees (50 rows)."], "plan": ["SCAN e"] }
 }
 ```
 
@@ -140,12 +143,13 @@ data: { ...same shape as /api/chat... }
 | SQL validation | Deterministic `sqlglot` checks: syntax, single statement, read-only, tables, columns, relationships |
 | Refuse destructive operations | Classifier refuses; validator rejects; database connection is read-only |
 | SQL explanation | Plain-English explanation of every generated query and its result |
-| SQL optimization | Readability and performance improvements, index suggestions, removed joins; the new query is validated **and run to confirm it returns the same rows** |
+| SQL optimization | Readability and performance improvements, index suggestions grounded in SQLite's query plan, removed joins; the new query is validated, **run to confirm it returns the same rows**, and its estimated cost is compared with the original |
 | SQL debugging | Uses real evidence (validator findings, the actual database error or result) to identify the issue, explain it and return a validated fix |
 | Conversation context | LangGraph checkpointer per `thread_id`; follow-ups modify the previous query |
 | Out-of-scope handling | Classifier refuses general knowledge, sports, politics, maths, other programming, creative writing and prompt-injection attempts |
 | Frontend | Chat, SQL panel (copy, download `.sql`), explanation panel, results table (download CSV), conversation history, live progress, error messages with retry, schema browser, dark mode, mobile layout |
-| Bonus | SQL execution, follow-ups, syntax highlighting, CSV export, prompt-injection protection, streaming, Docker Compose, 96 automated tests |
+| Query cost estimation | Every query gets a Low / Medium / High estimate from SQLite's `EXPLAIN QUERY PLAN` (rows read in full scans, nested loops multiplied) with plain-English plan notes — no LLM, query not run |
+| Bonus | SQL execution, follow-ups, query cost estimation, syntax highlighting, CSV export, prompt-injection protection, streaming, Docker Compose, 104 automated tests, GitHub Actions CI |
 
 ---
 
@@ -203,12 +207,12 @@ flowchart TD
 | `classify_intent` | small | One structured-output call does **intent detection and scope validation** together: one of `generate_sql`, `explain_sql`, `optimize_sql`, `debug_sql`, `schema_info`, `destructive`, `out_of_scope`, plus any SQL the user pasted. Also resets per-question state. |
 | `generate_sql` | large | Writes one SQLite `SELECT` (or asks a clarifying question if no reasonable assumption is possible). On a retry, the failed SQL and the validator's errors are added to the prompt. |
 | `validate_query` | — | Runs the deterministic validator. Errors trigger a retry; join warnings are passed to the user. |
-| `execute_query` | — | Runs the SQL (read-only, 5 s timeout, 500-row cap). A database error is treated like a validation error and retried. |
+| `execute_query` | — | Runs the SQL (read-only, 5 s timeout, 500-row cap) and estimates its cost from the query plan. A database error is treated like a validation error and retried. |
 | `explain` | small | Explains the query and result in 2–4 plain sentences, mentioning assumptions and warnings. |
 | `give_up` | — | After 3 failed attempts, says so instead of returning SQL known to be broken. |
 | `explain_user_sql` | small | Explains the user's query clause by clause (with validator findings), or a general SQL concept with an example on this schema. |
 | `debug_user_sql` | large | Gathers evidence first (validator findings; if valid, runs it and reports rows or the error), then returns issue / explanation / corrected SQL. The fix must pass validation to be shown. |
-| `optimize_user_sql` | large | Returns changes, index suggestions and an optimized query; validates it and **runs both queries to compare their rows**. |
+| `optimize_user_sql` | large | Gets SQLite's plan for the original query, returns changes, index suggestions and an optimized query; validates it, **runs both queries to compare their rows**, and shows the estimated cost before → after. |
 | `answer_schema_question` | small | Answers "what tables / columns / relationships exist" from the live schema. |
 | `refuse` | — | Fixed text for destructive and out-of-scope requests (no LLM call, cannot be manipulated). |
 
@@ -247,7 +251,7 @@ All prompts live in one file: **[`backend/app/agent/prompts.py`](backend/app/age
 | `SCHEMA_INFO_PROMPT` | `answer_schema_question` | Answer structure questions using only the schema |
 | `EXPLAIN_QUERY_PROMPT` / `EXPLAIN_CONCEPT_PROMPT` | `explain_user_sql` | Clause-by-clause explanation with validator findings / concept explanation with an example |
 | `DEBUG_PROMPT` | `debug_user_sql` | Diagnose using validator findings and the real run outcome; minimal fix |
-| `OPTIMIZE_PROMPT` | `optimize_user_sql` | Readability, performance, existing indexes, index suggestions; same results required |
+| `OPTIMIZE_PROMPT` | `optimize_user_sql` | Readability, performance, existing indexes, SQLite's query plan, index suggestions; same results required |
 | `OUT_OF_SCOPE_MESSAGE`, `DESTRUCTIVE_MESSAGE`, `GIVE_UP_MESSAGE` | `refuse`, `give_up` | Fixed replies (no LLM) |
 
 The schema given to the LLM is generated from the database at runtime (`get_schema_for_prompt()`): the original `CREATE TABLE` statements **including their column comments**, plus sample values per column (every value if a column has ≤ 20 distinct values, otherwise 3 examples). This is what lets the agent map "California" to `'CA'` and "cancelled" to the exact stored value.
@@ -291,12 +295,13 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-96 tests, ~5 seconds, **no API key or LLM calls needed** — every LLM is replaced by a scripted fake.
+104 tests, ~6 seconds, **no API key or LLM calls needed** — every LLM is replaced by a scripted fake. The same checks run on every push via **GitHub Actions** (backend tests, frontend lint/typecheck/build, Docker image builds).
 
 | File | Covers |
 |---|---|
 | `tests/test_validator.py` | All validator checks, including 14 kinds of write/admin statements |
 | `tests/test_database.py` | Read-only enforcement, timeout, row cap, schema reader, seed data |
+| `tests/test_query_cost.py` | Cost levels, alias mapping, nested-loop multiplication, index hints, CTEs |
 | `tests/test_agent.py` | Every intent's path, retry → success, retry → give up, database-error retry, clarification, memory per thread, per-turn state reset |
 | `tests/test_api.py` | 422 / 503 / 500 handling, response shape, hidden SQL after give-up, streaming event order, CORS |
 
@@ -320,12 +325,14 @@ backend/
       schema.sql            Sample database schema
       seed.py               Reproducible sample data
       database.py           Read-only access, schema reader, query runner
+      query_cost.py         Cost estimation from EXPLAIN QUERY PLAN
   tests/                    pytest suite (fake LLMs)
 frontend/
   src/app/                  Next.js page and layout
   src/components/           Chat UI components
   src/lib/                  API client (SSE), types, storage, downloads
 docker-compose.yml
+.github/workflows/ci.yml    CI: tests, lint, typecheck, build, Docker
 ```
 
 ---
@@ -348,6 +355,5 @@ docker-compose.yml
 
 - **Persistent memory:** swap `InMemorySaver` for LangGraph's `SqliteSaver`/`PostgresSaver` so conversations survive restarts.
 - **Multiple SQL dialects:** `sqlglot` already parses PostgreSQL and MySQL; supporting them end to end means a connection layer per engine and a dialect setting in the prompts.
-- **Query cost estimation:** run `EXPLAIN QUERY PLAN` and surface full scans before execution.
 - **Free-tier rate limits:** the Groq free tier allows about 8,000 tokens per minute per model (≈3 SQL questions per minute); heavier use needs a paid tier.
 - **Single database:** the agent works with the provided schema only, by design.
