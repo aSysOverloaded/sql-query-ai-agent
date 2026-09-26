@@ -61,8 +61,9 @@ export function Sidebar({ conversations, activeId, open, onClose, onNewChat, onS
                 </button>
                 <button
                   onClick={() => onDelete(conversation.id)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 opacity-0 transition hover:text-rose-500 group-hover:opacity-100 focus:opacity-100"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 transition hover:bg-rose-50 hover:text-rose-500 dark:text-zinc-500 dark:hover:bg-rose-500/10"
                   aria-label={`Delete ${conversation.title}`}
+                  title="Delete chat"
                 >
                   <TrashIcon className="size-4" />
                 </button>
