@@ -5,19 +5,16 @@ Creates company.db from schema.sql and fills it with realistic fake data.
 Uses a fixed random seed, so every run produces exactly the same data.
 
 Run from the backend folder:
-    python app/db/seed.py
+    python -m app.db.seed
 """
 
 import random
 import sqlite3
 from datetime import date
-from pathlib import Path
 
 from faker import Faker
 
-DB_DIR = Path(__file__).parent
-SCHEMA_PATH = DB_DIR / "schema.sql"
-DB_PATH = DB_DIR / "company.db"
+from app.config import DB_PATH, SCHEMA_PATH
 
 SEED = 42
 

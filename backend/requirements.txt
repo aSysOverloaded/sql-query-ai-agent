@@ -1,2 +1,6 @@
 Faker==40.39.0
 sqlglot==30.19.0
+langgraph==1.2.12
+langchain-core==1.6.5
+langchain-google-genai==4.4.0
+python-dotenv==1.2.3

@@ -8,9 +8,8 @@ validator, SQLite itself would refuse to change anything.
 import sqlite3
 import time
 from contextlib import closing
-from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "company.db"
+from app.config import DB_PATH
 
 MAX_LISTED_VALUES = 20
 EXAMPLE_VALUE_COUNT = 3
@@ -21,7 +20,7 @@ QUERY_TIMEOUT_SECONDS = 5
 def get_connection() -> sqlite3.Connection:
     """Open the database in read-only mode."""
     if not DB_PATH.exists():
-        raise FileNotFoundError(f"Database not found at {DB_PATH}. Run: python app/db/seed.py")
+        raise FileNotFoundError(f"Database not found at {DB_PATH}. Run: python -m app.db.seed")
     return sqlite3.connect(f"{DB_PATH.as_uri()}?mode=ro", uri=True)
 
 
