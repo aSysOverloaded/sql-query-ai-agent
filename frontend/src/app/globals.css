@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  @apply bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+.toolbar-button {
+  @apply flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-200/70 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200;
+}
+
+.sidebar-button {
+  @apply flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:bg-zinc-800;
+}
+
+.inline-code {
+  @apply rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[0.85em] text-indigo-700 dark:bg-zinc-800 dark:text-indigo-300;
+}
+
+.markdown {
+  @apply space-y-3 text-sm leading-relaxed text-zinc-800 dark:text-zinc-200;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  @apply font-semibold text-zinc-900 dark:text-zinc-100;
+}
+
+.markdown ul {
+  @apply list-disc space-y-1 pl-5;
+}
+
+.markdown ol {
+  @apply list-decimal space-y-1 pl-5;
+}
+
+.markdown strong {
+  @apply font-semibold text-zinc-900 dark:text-zinc-100;
+}
+
+.markdown table {
+  @apply block w-full overflow-x-auto border-collapse text-left text-sm;
+}
+
+.markdown th,
+.markdown td {
+  @apply border border-zinc-200 px-3 py-1.5 align-top dark:border-zinc-800;
+}
+
+.markdown th {
+  @apply bg-zinc-100 font-medium dark:bg-zinc-900;
+}
+
+.markdown hr {
+  @apply border-zinc-200 dark:border-zinc-800;
+}
+
+.hljs-keyword,
+.hljs-operator {
+  @apply font-medium text-indigo-600 dark:text-indigo-400;
+}
+
+.hljs-built_in,
+.hljs-type {
+  @apply text-sky-700 dark:text-sky-400;
+}
+
+.hljs-string {
+  @apply text-emerald-700 dark:text-emerald-400;
+}
+
+.hljs-number,
+.hljs-literal {
+  @apply text-amber-700 dark:text-amber-400;
+}
+
+.hljs-comment {
+  @apply italic text-zinc-400;
+}
