@@ -3,7 +3,6 @@ services:
     name: sql-query-ai-agent-api
     runtime: docker
     plan: free
-    rootDir: backend
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/health
