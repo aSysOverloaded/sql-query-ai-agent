@@ -8,7 +8,9 @@ Built with **LangGraph** (orchestration), **FastAPI** (API with streaming), **SQ
 
 ![Answer to "Show all employees hired after January 2024": generated SQL, explanation and results](docs/images/sql-answer.png)
 
-**Demo video:** [Watch on YouTube](https://youtu.be/06ycW-4PIfE)
+**Live demo:** [sql-query-ai-agent.vercel.app](https://sql-query-ai-agent.vercel.app) · **API docs:** [sql-query-ai-agent-api.onrender.com/docs](https://sql-query-ai-agent-api.onrender.com/docs) · **Demo video:** [Watch on YouTube](https://youtu.be/06ycW-4PIfE)
+
+> The backend runs on Render's free tier and sleeps when idle — the first question may take up to a minute while it wakes up.
 
 ---
 
