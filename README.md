@@ -15,6 +15,7 @@ Built with **LangGraph** (orchestration), **FastAPI** (API with streaming), **SQ
 ## Contents
 
 - [Quick start](#quick-start)
+- [Deployment](#deployment)
 - [API and interactive docs](#api-and-interactive-docs)
 - [Features](#features)
 - [Architecture](#architecture)
@@ -76,8 +77,24 @@ npm run dev
 | `LLM_PROVIDER` | `groq` | `groq` or `gemini` |
 | `CLASSIFIER_MODEL` / `GENERATOR_MODEL` / `EXPLAINER_MODEL` | Groq: `openai/gpt-oss-20b` / `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | Override the model used for each role |
 | `FRONTEND_ORIGINS` | `http://localhost:3000` | Comma-separated origins allowed by CORS |
+| `RATE_LIMIT_PER_HOUR` / `RATE_LIMIT_PER_DAY` | `20` / `300` | Questions allowed per visitor IP per hour, and in total per day (protects the LLM quota on a public deployment) |
 
 The frontend reads `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`).
+
+---
+
+## Deployment
+
+The backend and frontend deploy separately, both on free tiers:
+
+| Part | Host | Setup |
+|---|---|---|
+| Backend (FastAPI + SQLite) | [Render](https://render.com) | **New → Blueprint** and select this repo — [`render.yaml`](render.yaml) builds `backend/Dockerfile`. Enter `GROQ_API_KEY` and `FRONTEND_ORIGINS` (the frontend URL) when prompted. |
+| Frontend (Next.js) | [Vercel](https://vercel.com) | **Import** this repo, set **Root Directory** to `frontend`, and add `NEXT_PUBLIC_API_URL` = the Render backend URL. |
+
+- The container seeds the database on start and listens on Render's `PORT`.
+- **Rate limiting** protects the LLM quota: 20 questions per visitor per hour and 300 per day in total (HTTP 429 with a friendly message when exceeded).
+- The free Render instance sleeps after ~15 minutes idle; the first request afterwards takes 30–60 seconds, and conversation memory starts fresh.
 
 ---
 
@@ -118,7 +135,7 @@ curl -X POST http://localhost:8000/api/chat \
 }
 ```
 
-**Status codes:** `422` invalid input (empty or over 2,000 characters, missing `thread_id`) · `503` LLM rate limit ("The AI service is busy…") · `500` unexpected error (generic message; details only in server logs).
+**Status codes:** `422` invalid input (empty or over 2,000 characters, missing `thread_id`) · `429` rate limit reached · `503` LLM rate limit ("The AI service is busy…") · `500` unexpected error (generic message; details only in server logs).
 
 **Streaming** (`curl -N` shows events as they arrive):
 
@@ -149,7 +166,7 @@ data: { ...same shape as /api/chat... }
 | Out-of-scope handling | Classifier refuses general knowledge, sports, politics, maths, other programming, creative writing and prompt-injection attempts |
 | Frontend | Chat, SQL panel (copy, download `.sql`), explanation panel, results table (download CSV), conversation history, live progress, error messages with retry, schema browser, dark mode, mobile layout |
 | Query cost estimation | Every query gets a Low / Medium / High estimate from SQLite's `EXPLAIN QUERY PLAN` (rows read in full scans, nested loops multiplied) with plain-English plan notes — no LLM, query not run |
-| Bonus | SQL execution, follow-ups, query cost estimation, syntax highlighting, CSV export, prompt-injection protection, streaming, Docker Compose, 104 automated tests, GitHub Actions CI |
+| Bonus | SQL execution, follow-ups, query cost estimation, syntax highlighting, CSV export, prompt-injection protection, streaming, Docker Compose, 111 automated tests, GitHub Actions CI, rate limiting, Render/Vercel deployment config |
 
 ---
 
@@ -229,6 +246,7 @@ Defense in depth — each layer catches what the previous one might miss:
 | Layer | Protects against |
 |---|---|
 | Input limits (Pydantic) | Empty or oversized messages (>2,000 chars) before any LLM call |
+| Rate limiting | One visitor or a public deployment using up the LLM quota (per-IP hourly and total daily limits, checked before any LLM call) |
 | Intent classifier | Destructive requests (however politely phrased), off-topic questions, prompt injection ("ignore your instructions…") |
 | Generator prompt rules | Write statements, invented tables/columns, wrong value formats (`'CA'`, `'cancelled'`), wrong revenue column, LEFT JOIN filter mistakes |
 | **Deterministic validator** (`sqlglot`) | Syntax errors; multiple statements (`SELECT …; DROP …`); any non-query statement — an allowlist (`exp.Query`) plus a blocklist walk that also catches hidden writes like `WITH … DELETE`; unknown tables (CTE names allowed); unknown/ambiguous columns resolved through aliases, CTEs and subqueries; joins that don't follow a foreign key (warning) |
@@ -297,7 +315,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-104 tests, ~6 seconds, **no API key or LLM calls needed** — every LLM is replaced by a scripted fake. The same checks run on every push via **GitHub Actions** (backend tests, frontend lint/typecheck/build, Docker image builds).
+111 tests, ~6 seconds, **no API key or LLM calls needed** — every LLM is replaced by a scripted fake. The same checks run on every push via **GitHub Actions** (backend tests, frontend lint/typecheck/build, Docker image builds).
 
 | File | Covers |
 |---|---|
@@ -306,6 +324,7 @@ pytest
 | `tests/test_query_cost.py` | Cost levels, alias mapping, nested-loop multiplication, index hints, CTEs |
 | `tests/test_agent.py` | Every intent's path, retry → success, retry → give up, database-error retry, clarification, memory per thread, per-turn state reset |
 | `tests/test_api.py` | 422 / 503 / 500 handling, response shape, hidden SQL after give-up, streaming event order, CORS |
+| `tests/test_rate_limit.py` | Per-visitor and daily limits, window reset, proxy IP header, 429 before any LLM call |
 
 ---
 
@@ -316,6 +335,7 @@ backend/
   app/
     main.py                 FastAPI app: /api/chat, /api/chat/stream, /api/schema, /api/health
     config.py               Settings (provider, models, paths, limits)
+    rate_limit.py           Per-visitor and daily request limits
     agent/
       graph.py              LangGraph wiring: nodes, routers, retry loop, checkpointer
       nodes.py              One function per workflow step

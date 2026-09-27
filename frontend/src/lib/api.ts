@@ -1,7 +1,8 @@
 import type { ChatResponse, Schema } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const OFFLINE_MESSAGE = "Can't reach the server. Is the backend running on port 8000?";
+const OFFLINE_MESSAGE =
+  "Can't reach the server. If this is the hosted demo, it may be waking up — please try again in a minute.";
 
 async function readError(response: Response): Promise<string> {
   try {

@@ -10,7 +10,7 @@ import logging
 from collections.abc import Iterator
 from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -20,6 +20,7 @@ from app import config
 from app.agent.graph import agent
 from app.agent.llm import RATE_LIMIT_ERRORS
 from app.db.database import get_schema
+from app.rate_limit import client_ip, rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +108,16 @@ def thread_config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
 
+def enforce_rate_limit(http_request: Request) -> None:
+    """Reject the request with 429 before any LLM call if the visitor or the demo is over its limit."""
+    limit_message = rate_limiter.check(client_ip(http_request))
+    if limit_message:
+        raise HTTPException(status_code=429, detail=limit_message)
+
+
 @app.post("/api/chat")
-def chat(request: ChatRequest) -> ChatResponse:
+def chat(request: ChatRequest, http_request: Request) -> ChatResponse:
+    enforce_rate_limit(http_request)
     try:
         state = agent.invoke(
             {"messages": [HumanMessage(request.message)]}, config=thread_config(request.thread_id)
@@ -148,7 +157,8 @@ def stream_agent(request: ChatRequest) -> Iterator[str]:
 
 
 @app.post("/api/chat/stream")
-def chat_stream(request: ChatRequest) -> StreamingResponse:
+def chat_stream(request: ChatRequest, http_request: Request) -> StreamingResponse:
+    enforce_rate_limit(http_request)
     return StreamingResponse(stream_agent(request), media_type="text/event-stream")
 
 

@@ -15,6 +15,17 @@ os.environ.setdefault("GROQ_API_KEY", "test-key")
 os.environ.setdefault("GOOGLE_API_KEY", "test-key")
 
 
+@pytest.fixture(autouse=True)
+def fresh_rate_limiter(monkeypatch):
+    """Every test starts with an empty rate limiter, so request counts never leak between tests."""
+    from app import main
+    from app.rate_limit import RateLimiter
+
+    limiter = RateLimiter(per_hour=20, per_day=300)
+    monkeypatch.setattr(main, "rate_limiter", limiter)
+    return limiter
+
+
 @pytest.fixture(scope="session")
 def seeded_database():
     """Make sure company.db exists (it is not committed to git) before tests that read it."""
